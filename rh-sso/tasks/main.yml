@@ -1,0 +1,10 @@
+---
+# tasks file for rh-sso
+- name: Postgresql | Task install postgresql
+  include_tasks: postgresql.yaml
+
+- name: Postgresql | Task Data Base for Keycloak
+  include_tasks: postgresql_db.yaml
+
+- name: Jboss | Task install rh-sso
+  include_tasks: install.yaml

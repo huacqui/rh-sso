@@ -1,0 +1,16 @@
+---
+- name: Postgresql DB | Create user keycloak
+  postgresql_user:
+    state: present
+    name: keycloak
+    password: "{{ db_password }}"
+  become: yes
+  become_user: postgres
+
+- name: Postgresql DB | Create database keycloak
+  postgresql_db:
+    state: present
+    name: keycloak
+    owner: keycloak
+  become: yes
+  become_user: postgres

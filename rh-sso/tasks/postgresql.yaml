@@ -1,0 +1,33 @@
+---
+- name: Postgresql | Install packages
+  package:
+   name:
+     - python3-psycopg2
+     - postgresql-server
+     - postgresql
+   state: present
+
+- name: Postgresql | Find out if PostgreSQL is initialized
+  stat:
+    path: "/var/lib/pgsql/data/pg_hba.conf"
+  register: postgres_data
+
+- name: Postgresql | Initialize Postgresql
+  shell: postgresql-setup initdb
+  when: not postgres_data.stat.exists
+
+- name: Postgresql | Change 127.0.0.1 md5 encrypted password
+  postgresql_pg_hba:
+    dest: /var/lib/pgsql/data/pg_hba.conf
+    contype: host
+    users: all
+    source: 127.0.0.1
+    databases: all
+    method: md5
+    create: true
+
+- name: Postgresql | Start and enable services
+  service:
+    name: postgresql
+    state: started
+    enabled: yes

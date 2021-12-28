@@ -1,0 +1,93 @@
+---
+- name: Jboss | Install dependencies
+  package:
+   name:
+     - java-1.8.0-openjdk-devel
+     - python3-cryptography
+     - unzip
+   state: present
+
+- name: Jboss | Download redhat-sso
+  unarchive:
+    src: "{{ pkg_rh_sso }}"
+    dest: /opt
+    remote_src: yes
+    list_files: True
+  register: sso
+
+- name: Jboss | Create User
+  user:
+    name: jboss-eap
+    system: True
+    home: "{{ sso.dest }}/{{ sso.files[0] }}"
+  register: jbossuser
+
+- name: Jboss | Add module database 
+  copy:
+    src: postgresql
+    dest: "{{ sso.dest }}/{{ sso.files[0] }}/modules/system/layers/keycloak/org"
+
+- name: Jboss | Add Driver
+  shell: "{{ sso.dest }}/{{ sso.files[0] }}/bin/jboss-cli.sh --commands=\"embed-server, /subsystem=datasources/jdbc-driver=postgresql:add(driver-name=postgresql,driver-module-name=org.postgresql,driver-xa-datasource-class-name=org.postgresql.xa.PGXADataSource)\""
+
+- name: Jboss | Remove Datasource H2
+  shell: "{{ sso.dest }}/{{ sso.files[0] }}/bin/jboss-cli.sh --commands='embed-server, data-source remove --name=KeycloakDS'"
+
+- name: Jboss | Add Datasource Postgresql
+  shell: "{{ sso.dest }}/{{ sso.files[0] }}/bin/jboss-cli.sh --commands=\"embed-server,data-source add --name=KeycloakDS --jndi-name=java:jboss/datasources/KeycloakDS --driver-name=postgresql --connection-url=jdbc:postgresql://127.0.0.1:5432/keycloak --user-name=keycloak --password={{ db_password }} --validate-on-match=true --background-validation=false --valid-connection-checker-class-name=org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLValidConnectionChecker --exception-sorter-class-name=org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLExceptionSorter --enabled=true --use-java-context=true --statistics-enabled=false\""
+
+- name: Jboss | Add user admin console
+  shell: "{{ sso.dest }}/{{ sso.files[0] }}/bin/add-user-keycloak.sh -u admin -p {{ admin_consola }}"
+
+- name: Jboss | Change owner folder installation
+  file:
+    path: "{{ sso.dest }}/{{ sso.files[0] }}"
+    owner: "{{ jbossuser.name }}"
+    group: "{{ jbossuser.name }}"
+    recurse: yes
+
+- name: Jboss | Add folder to console.log
+  file:
+    path: "{{ console_log_dir }}"
+    owner: "{{ jbossuser.name }}"
+    group: "{{ jbossuser.name }}"
+    state: directory
+
+- name: Jboss | Add service in init.d
+  copy:
+    src: "{{ sso.dest }}/{{ sso.files[0] }}bin/init.d/jboss-eap-rhel.sh"
+    dest: /etc/init.d/rh-sso
+    mode: 0755
+    remote_src: yes
+
+- name: Jboss | Add service config
+  template:
+    src: "jboss-eap-{{ sso.files[0].split('-')[2].split('/')[0] }}.j2"
+    dest: /etc/default/jboss-eap.conf
+
+- name: Jboss | Add firwalld rule forward
+  firewalld:
+    rich_rule: rule family=ipv4 forward-port port=443 protocol=tcp to-port=8443
+    permanent: yes
+    immediate: yes
+    state: enabled
+
+- name: Jboss | Generate an OpenSSL private key with the default values (4096 bits, RSA)
+  openssl_privatekey:
+    path: "{{ sso.dest }}/{{ sso.files[0] }}server.key"
+
+- name: Jboss | Generate an OpenSSL Certificate Signing Request
+  openssl_csr:
+    path: "{{ sso.dest }}/{{ sso.files[0] }}server.csr"
+    privatekey_path: "{{ sso.dest }}/{{ sso.files[0] }}server.key"
+    common_name: "{{ common_name }}"
+    country_name: "{{ country_name }}"
+    email_address: "{{ email_address }}"
+    locality_name: "{{ locality_name }}"
+    organization_name: "{{ organization_name }}"
+    subject_alt_name: "DNS:{{ common_name }}"
+  register: certificate 
+- name: Jboss | Cerficados
+  debug:
+     msg: "{{ certificate.filename }} and {{ certificate.privatekey }}" 
+ 

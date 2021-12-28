@@ -1,0 +1,14 @@
+---
+- name: Instalar rh-sso
+  hosts: sso
+  vars:
+    pkg_rh_sso: https://nexus.t.st/repository/ocp_raw_local/rh-sso-7.5.0-server-dist.zip
+    console_log_dir: /var/log/jboss-eap
+    common_name: sso.t.st
+    country_name: PY
+    email_address: admin@t.st
+    locality_name: Fernando de la Mora
+    organization_name: t.st
+    db_password: keycloak
+  roles:
+     - rh-sso
