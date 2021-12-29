@@ -10,5 +10,6 @@
     locality_name: Fernando de la Mora
     organization_name: t.st
     db_password: keycloak
+    admin_consola: redhat
   roles:
      - rh-sso
